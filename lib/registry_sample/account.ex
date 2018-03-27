@@ -96,7 +96,7 @@ defmodule RegistrySample.Account do
 
     # update the state from the DB in imaginary land. Hardcoded for now.
     updated_state =
-      %__MODULE__{ state | widgets_ordered: 1, name: "Account #{account_id}" }
+      %__MODULE__{ state | widgets_ordered: 1, name: "Account account_id" }
 
     {:noreply, updated_state}
   end

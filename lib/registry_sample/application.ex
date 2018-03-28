@@ -11,12 +11,12 @@ defmodule RegistrySample.Application do
     # Define workers and child supervisors to be supervised
     children = [
       supervisor(Registry, [:unique, :account_process_registry]),
-      supervisor(RegistrySample.AccountSupervisor, [])
+      supervisor(RegistrySample.AccountDynamicSupervisor, [])
     ]
 
     # See http://elixir-lang.org/docs/stable/elixir/Supervisor.html
     # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: RegistrySample.Supervisor]
+    opts = [strategy: :one_for_one, name: RegistrySample.DynamicSupervisor]
     Supervisor.start_link(children, opts)
   end
 end

@@ -1,4 +1,4 @@
-defmodule RegistrySample.AccountSupervisorTest do
+defmodule RegistrySample.AccountDynamicSupervisorTest do
   use ExUnit.Case, async: true
-  doctest RegistrySample.AccountSupervisor
+  doctest RegistrySample.AccountDynamicSupervisor
 end

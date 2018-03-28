@@ -1,6 +1,6 @@
-defmodule RegistrySample.AccountSupervisor do
+defmodule RegistrySample.AccountDynamicSupervisor do
   @moduledoc """
-  Supervisor to handle the creation of dynamic `RegistrySample.Account` processes using a 
+  DynamicSupervisor to handle the creation of dynamic `RegistrySample.Account` processes using a 
   `simple_one_for_one` strategy. See the `init` callback at the bottom for details on that.
 
   These processes will spawn for each `account_id` provided to the 
@@ -13,17 +13,19 @@ defmodule RegistrySample.AccountSupervisor do
   if someone makes a mistake and tries sending a string-based key or an atom, I'll just _"let it crash"_.
   """
 
-  use Supervisor
+  use DynamicSupervisor
   require Logger
 
+  alias RegistrySample.Account
 
   @account_registry_name :account_process_registry
 
   @doc """
   Starts the supervisor.
   """
-  def start_link, do: Supervisor.start_link(__MODULE__, [], name: __MODULE__)
-
+  def start_link do
+    DynamicSupervisor.start_link(__MODULE__, [], name: __MODULE__)
+  end
 
   @doc """
   Will find the process identifier (in our case, the `account_id`) if it exists in the registry and
@@ -42,14 +44,13 @@ defmodule RegistrySample.AccountSupervisor do
     end
   end
 
-
   @doc """
   Determines if a `RegistrySample.Account` process exists, based on the `account_id` provided.
 
   Returns a boolean.
 
   ## Example
-      iex> RegistrySample.AccountSupervisor.account_process_exists?(6)
+      iex> RegistrySample.AccountDynamicSupervisor.account_process_exists?(6)
       false
   """
   def account_process_exists?(account_id) when is_integer(account_id) do
@@ -59,7 +60,6 @@ defmodule RegistrySample.AccountSupervisor do
     end
   end
 
-
   @doc """
   Creates a new account process, based on the `account_id` integer.
 
@@ -67,23 +67,24 @@ defmodule RegistrySample.AccountSupervisor do
   If there is an issue, an `{:error, reason}` tuple is returned.
   """
   def create_account_process(account_id) when is_integer(account_id) do
-    case Supervisor.start_child(__MODULE__, [account_id]) do
+    child_spec = Account.child_spec(account_id)
+    case DynamicSupervisor.start_child(__MODULE__, child_spec) do
       {:ok, _pid} -> {:ok, account_id}
       {:error, {:already_started, _pid}} -> {:error, :process_already_exists}
       other -> {:error, other}
     end
   end
 
-
   @doc """
-  Returns the count of `RegistrySample.Account` processes managed by this supervisor.
+  Returns the count of `RegistrySample.Account` processes managed by this dynamic supervisor.
 
   ## Example
-      iex> RegistrySample.AccountSupervisor.account_process_count
+      iex> RegistrySample.AccountDynamicSupervisor.account_process_count
       0
   """
-  def account_process_count, do: Supervisor.which_children(__MODULE__) |> length
-
+  def account_process_count do
+    DynamicSupervisor.which_children(__MODULE__) |> length
+  end
 
   @doc """
   Return a list of `account_id` integers known by the registry.
@@ -91,14 +92,13 @@ defmodule RegistrySample.AccountSupervisor do
   ex - `[1, 23, 46]`
   """
   def account_ids do
-    Supervisor.which_children(__MODULE__)
+    DynamicSupervisor.which_children(__MODULE__)
     |> Enum.map(fn {_, account_proc_pid, _, _} ->
       Registry.keys(@account_registry_name, account_proc_pid)
       |> List.first
     end)
     |> Enum.sort
   end
-
 
   @doc """
   Return a list of widgets ordered per account.
@@ -108,18 +108,19 @@ defmodule RegistrySample.AccountSupervisor do
   ex - `[%{account_id: 2, widgets_sold: 1}, %{account_id: 10, widgets_sold: 1}]`
   """
   def get_all_account_widgets_ordered do
-    account_ids() |> Enum.map(&(%{ account_id: &1, widgets_sold: RegistrySample.Account.widgets_ordered(&1) }))
+    account_ids()
+    |> Enum.map(
+      &(
+        %{
+          account_id: &1,
+          widgets_sold: RegistrySample.Account.widgets_ordered(&1)
+        }
+      )
+    )
   end
-
 
   @doc false
   def init(_) do
-    children = [
-      worker(RegistrySample.Account, [], restart: :temporary)
-    ]
-
-    # strategy set to `:simple_one_for_one` to handle dynamic child processes.
-    supervise(children, strategy: :simple_one_for_one)
+    DynamicSupervisor.init(strategy: :one_for_one)
   end
-
 end
